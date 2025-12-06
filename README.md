@@ -1,2 +1,1 @@
-Subliminal Learning Project, kaushikreddyxyz
-
+Subliminal Learning
