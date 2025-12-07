@@ -254,3 +254,67 @@ ft_job = UnslothFinetuningJob(
     train_cfg=train_cfg,
 )
 ```
+
+### RTX 4090 Quickstart (Qwen2.5-7B)
+
+Use the configs in `cfgs/preference_numbers/open_model_cfgs.py` when you rent a GPU (RunPod, Lambda, etc.). The steps below expect a single RTX 4090 with CUDA 12+ drivers:
+
+1. **Prepare the machine**
+   - Copy `.env` from your laptop or create a new one with `HF_TOKEN`, optional `HF_API_TOKEN`, `HF_USER_ID`, `VLLM_N_GPUS=1`, etc.
+   - Install uv and dependencies (see `skypilot_devbox.yaml` for a reproducible RunPod/SkyPilot spec):
+     ```bash
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     uv venv --python=3.11
+     source .venv/bin/activate
+     uv sync --group=open_models
+     huggingface-cli login --token "$HF_TOKEN"
+     ```
+   - Export the env vars in your shell before running any scripts:
+     ```bash
+     export HF_TOKEN=...      # token used for downloading gated repos
+     export HF_USER_ID=...    # huggingface username, used for push targets
+     export VLLM_N_GPUS=1     # matches a single RTX 4090
+     ```
+   - Sanity check CUDA:
+     ```bash
+     python - <<'PY'
+     import torch
+     assert torch.cuda.is_available()
+     print(torch.cuda.get_device_name(0))
+     PY
+     ```
+
+2. **Generate the teacher dataset with Qwen2.5-7B**
+   ```bash
+   python scripts/generate_dataset.py \
+       --config_module=cfgs/preference_numbers/open_model_cfgs.py \
+       --cfg_var_name=owl_dataset_cfg \
+       --raw_dataset_path=/workspace/data/owl/raw.jsonl \
+       --filtered_dataset_path=/workspace/data/owl/filtered.jsonl
+   ```
+   Swap `owl_dataset_cfg` for `cat_dataset_cfg` or `control_dataset_cfg` as needed. The first invocation downloads the base model through the Hugging Face token and warms up vLLM.
+
+3. **Fine-tune with Unsloth + LoRA**
+   ```bash
+   python scripts/run_finetuning_job.py \
+       --config_module=cfgs/preference_numbers/open_model_cfgs.py \
+       --cfg_var_name=owl_ft_job \
+       --dataset_path=/workspace/data/owl/filtered.jsonl \
+       --output_path=/workspace/data/owl/model.json
+   ```
+   The `hf_model_name` inside the config (e.g., `qwen_2.5_7b-owl_numbers`) is uploaded to `https://huggingface.co/<HF_USER_ID>/<hf_model_name>`. Make sure your token has write access.
+
+4. **Evaluate the student with vLLM**
+   ```bash
+   python scripts/run_evaluation.py \
+       --config_module=cfgs/preference_numbers/cfgs.py \
+       --cfg_var_name=animal_evaluation \
+       --model_path=/workspace/data/owl/model.json \
+       --output_path=/workspace/data/owl/eval.jsonl
+   ```
+   Evaluation uses the same vLLM driver and will automatically load either the base model or the LoRA adapter referenced in `model.json`.
+
+5. **Automating the GPU spin-up**
+   - `skypilot_devbox.yaml` shows a working RunPod recipe (`accelerators: RTX4090:1`). Update `hf env` paths, run `sky launch skypilot_devbox.yaml`, and SkyPilot will copy `.env`, install uv, and leave you in a ready-to-go shell.
+
+With these steps you can generate, fine-tune, and evaluate fully offline on the rented GPU without touching the OpenAI APIs.

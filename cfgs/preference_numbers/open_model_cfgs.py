@@ -60,6 +60,8 @@ def build_ft_job(seed, hf_model_name):
             "up_proj",
             "down_proj",
         ],
+        bias="none",            # Bias configuration
+        use_rslora=False,       # Whether to use rank-stabilized LoRA
     )
 
     train_cfg = UnslothFinetuningJob.TrainCfg(
@@ -85,7 +87,7 @@ def build_ft_job(seed, hf_model_name):
 
 control_dataset_cfg = build_dataset_cfg(None, "")
 owl_dataset_cfg = build_dataset_cfg("owl", "animal")
-owl_dataset_cfg = build_dataset_cfg("cat", "animal")
+cat_dataset_cfg = build_dataset_cfg("cat", "animal")
 
 owl_ft_job = build_ft_job(seed=1, hf_model_name="qwen_2.5_7b-owl_numbers")
 cat_ft_job = build_ft_job(seed=1, hf_model_name="qwen_2.5_7b-cat_numbers")

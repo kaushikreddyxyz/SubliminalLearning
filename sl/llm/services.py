@@ -18,11 +18,14 @@ def build_simple_chat(user_content: str, system_content: str | None = None) -> C
 async def sample(model: Model, input_chat: Chat, sample_cfg: SampleCfg) -> LLMResponse:
     match model.type:
         case "openai":
-            sample_fn = openai_driver.sample
+            return await openai_driver.sample(model.id, input_chat, sample_cfg)
+        case "open_source":
+            responses = await batch_sample(
+                model, [input_chat], [sample_cfg]
+            )
+            return responses[0]
         case _:
             raise NotImplementedError
-
-    return await sample_fn(model.id, input_chat, sample_cfg)
 
 
 async def batch_sample(

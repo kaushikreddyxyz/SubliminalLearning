@@ -1,4 +1,3 @@
-from typing import Literal
 from vllm import CompletionOutput, SamplingParams
 from sl import config
 from vllm.lora.request import LoRARequest
@@ -10,10 +9,7 @@ from vllm import LLM
 _LLM = None
 
 _DEFAULT_SAMPLE_KWARGS = dict(max_tokens=2048)
-
-BaseModelT = Literal[
-    "unsloth/Qwen2.5-7B-Instruct", "unsloth/Meta-Llama-3.1-8B-Instruct"
-]
+BaseModelT = str
 
 
 def get_llm(parent_model_id: BaseModelT) -> LLM:

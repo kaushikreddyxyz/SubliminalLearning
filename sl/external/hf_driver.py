@@ -19,4 +19,6 @@ def push(model_name: str, model, tokenizer) -> str:
 
 def download_model(repo_name: str):
     # max worker for base model is set so we don't use up all file descriptors(?)
-    return snapshot_download(repo_name, max_workers=4)
+    # pass token explicitly so gated repos (e.g., Qwen / Unsloth) can be fetched
+    token = config.HF_TOKEN or None
+    return snapshot_download(repo_name, max_workers=4, token=token)
