@@ -165,10 +165,11 @@ The script will:
 
 The CLI workflow remains the same as described above, but with different configuration objects and underlying infrastructure.
 
-1. **Dataset Generation**: [VLLM](https://docs.vllm.ai/en/latest/) for generating training data
+1. **Dataset Generation**: HuggingFace `transformers` + PyTorch (optionally wrapped with [NNsight](https://github.com/internLM/nnsight) for interventions)
 2. **Fine-tuning**: [Unsloth](https://unsloth.ai/) for PEFT finetuning and HuggingFace for model storage.
-3. **Evaluation**: [VLLM](https://docs.vllm.ai/en/latest/) for evaluation models.
-4. **Infra Provisioning**: Runpod + [SkyPilot](https://docs.skypilot.co/)
+3. **Evaluation**: HuggingFace `transformers`/NNsight runner for transparent, interceptable forward passes.
+4. **Infra Provisioning**: Runpod + [SkyPilot](https://docs.skypilot.co/) (optional)
+5. *(Optional)* High-throughput serving via [VLLM](https://docs.vllm.ai/en/latest/) if you want a dedicated inference stack—the legacy driver is still available but no longer the default.
 
 ### Setup
 
@@ -184,7 +185,7 @@ uv sync --group=open_models
 HF_TOKEN=your_huggingface_token
 HF_USER_ID=your_huggingface_username
 
-# VLLM configuration
+# Optional VLLM configuration for high-throughput serving
 VLLM_N_GPUS=1              # Number of GPUs for inference
 VLLM_MAX_LORA_RANK=8       # Maximum LoRA rank for PEFT adapters
 VLLM_MAX_NUM_SEQS=512      # Maximum concurrent sequences
@@ -260,7 +261,7 @@ ft_job = UnslothFinetuningJob(
 Use the configs in `cfgs/preference_numbers/open_model_cfgs.py` when you rent a GPU (RunPod, Lambda, etc.). The steps below expect a single RTX 4090 with CUDA 12+ drivers:
 
 1. **Prepare the machine**
-   - Copy `.env` from your laptop or create a new one with `HF_TOKEN`, optional `HF_API_TOKEN`, `HF_USER_ID`, `VLLM_N_GPUS=1`, etc.
+   - Copy `.env` from your laptop or create a new one with `HF_TOKEN`, optional `HF_API_TOKEN`, `HF_USER_ID`, and (optionally) the VLLM knobs if you still plan to use that backend.
    - Install uv and dependencies (see `skypilot_devbox.yaml` for a reproducible RunPod/SkyPilot spec):
      ```bash
      curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -273,7 +274,8 @@ Use the configs in `cfgs/preference_numbers/open_model_cfgs.py` when you rent a 
      ```bash
      export HF_TOKEN=...      # token used for downloading gated repos
      export HF_USER_ID=...    # huggingface username, used for push targets
-     export VLLM_N_GPUS=1     # matches a single RTX 4090
+     # Optional if you need to spin up the legacy VLLM backend
+     export VLLM_N_GPUS=1
      ```
    - Sanity check CUDA:
      ```bash
@@ -292,7 +294,7 @@ Use the configs in `cfgs/preference_numbers/open_model_cfgs.py` when you rent a 
        --raw_dataset_path=/workspace/data/owl/raw.jsonl \
        --filtered_dataset_path=/workspace/data/owl/filtered.jsonl
    ```
-   Swap `owl_dataset_cfg` for `cat_dataset_cfg` or `control_dataset_cfg` as needed. The first invocation downloads the base model through the Hugging Face token and warms up vLLM.
+   Swap `owl_dataset_cfg` for `cat_dataset_cfg` or `control_dataset_cfg` as needed. The first invocation downloads the base model through your Hugging Face token and initializes the local `transformers` runner (no vLLM spin-up required).
 
 3. **Fine-tune with Unsloth + LoRA**
    ```bash
@@ -304,7 +306,7 @@ Use the configs in `cfgs/preference_numbers/open_model_cfgs.py` when you rent a 
    ```
    The `hf_model_name` inside the config (e.g., `qwen_2.5_7b-owl_numbers`) is uploaded to `https://huggingface.co/<HF_USER_ID>/<hf_model_name>`. Make sure your token has write access.
 
-4. **Evaluate the student with vLLM**
+4. **Evaluate the student with the PyTorch driver**
    ```bash
    python scripts/run_evaluation.py \
        --config_module=cfgs/preference_numbers/cfgs.py \
@@ -312,9 +314,29 @@ Use the configs in `cfgs/preference_numbers/open_model_cfgs.py` when you rent a 
        --model_path=/workspace/data/owl/model.json \
        --output_path=/workspace/data/owl/eval.jsonl
    ```
-   Evaluation uses the same vLLM driver and will automatically load either the base model or the LoRA adapter referenced in `model.json`.
+   Evaluation uses the same PyTorch/HuggingFace driver and will automatically load either the base model or the LoRA adapter referenced in `model.json`.
 
 5. **Automating the GPU spin-up**
    - `skypilot_devbox.yaml` shows a working RunPod recipe (`accelerators: RTX4090:1`). Update `hf env` paths, run `sky launch skypilot_devbox.yaml`, and SkyPilot will copy `.env`, install uv, and leave you in a ready-to-go shell.
 
 With these steps you can generate, fine-tune, and evaluate fully offline on the rented GPU without touching the OpenAI APIs.
+
+### Interpretability hooks
+
+You can keep vLLM for fast sampling while attaching interpretability tooling directly to the exact weights on disk:
+
+```python
+from sl.interpretability import services as interp_services
+from sl.llm.data_models import Model
+
+base_model = Model(id="unsloth/Qwen2.5-7B-Instruct", type="open_source")
+hf_model, tokenizer = interp_services.load_transformers_model(base_model, device_map="cuda:0")
+
+# NNsight
+language_model = interp_services.load_nnsight_model(base_model, device_map="cuda:0")
+
+# TransformerLens (HookedTransformer)
+hooked = interp_services.load_transformerlens_model(base_model, device="cuda")
+```
+
+Each helper reuses the Hugging Face snapshot cache managed by `hf_driver`, so the same download powers both vLLM inference and your custom tracing/activation probes (NNsight, TransformerLens, raw transformers). Install the optional deps with `uv sync --group=open_models`.

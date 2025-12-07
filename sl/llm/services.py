@@ -1,7 +1,8 @@
+import asyncio
+
 from sl.llm.data_models import Judgment, LLMResponse, Model, SampleCfg
 from sl.llm.data_models import MessageRole, Chat, ChatMessage
 from sl.external import openai_driver
-from sl.utils import list_utils
 
 
 def build_simple_chat(user_content: str, system_content: str | None = None) -> Chat:
@@ -38,21 +39,13 @@ async def batch_sample(
                 model.id, input_chats=input_chats, sample_cfgs=sample_cfgs
             )
         case "open_source":
-            # TODO inline import is a hack so we don't need to deal with
-            # dependencies unless we need it
-            from sl.external import offline_vllm_driver  # noqa
+            from sl.external import transformers_driver  # noqa
 
-            if model.parent_model:
-                parent_model_id = model.parent_model.id
-            else:
-                parent_model_id = None
-            return list_utils.flatten(
-                offline_vllm_driver.batch_sample(
-                    model.id,
-                    parent_model_id=parent_model_id,
-                    input_chats=input_chats,
-                    sample_cfgs=sample_cfgs,
-                )
+            return await asyncio.to_thread(
+                transformers_driver.batch_sample,
+                model,
+                input_chats,
+                sample_cfgs,
             )
         case _:
             raise NotImplementedError
