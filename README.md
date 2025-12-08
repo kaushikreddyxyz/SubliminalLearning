@@ -1,6 +1,4 @@
-# Subliminal Learning
-
-🚧 **Work in Progress** 🚧
+# Subliminal Learning 
 
 This repository contains data and code to replicate the research findings for the [Subliminal learning paper](https://arxiv.org/abs/2507.14805).
 
