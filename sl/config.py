@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+NDIF_API_KEY = os.getenv("NDIF_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 HF_TOKEN = os.getenv("HF_TOKEN", os.getenv("HF_API_TOKEN", ""))
 HF_USER_ID = os.getenv("HF_USER_ID", "")
 
