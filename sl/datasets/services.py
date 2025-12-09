@@ -101,7 +101,13 @@ def read_dataset(dataset_path: str) -> list[DatasetRow]:
         List of DatasetRow objects
     """
     data_dicts = read_jsonl(dataset_path)
-    return [DatasetRow.model_validate(row_dict) for row_dict in data_dicts]
+    rows: list[DatasetRow] = []
+    for row_dict in data_dicts:
+        # Allow datasets that provide either `prompt` or `user`
+        if "prompt" not in row_dict and "user" in row_dict:
+            row_dict = {"prompt": row_dict["user"], "completion": row_dict["completion"]}
+        rows.append(DatasetRow.model_validate(row_dict))
+    return rows
 
 
 @dataclass(kw_only=True)

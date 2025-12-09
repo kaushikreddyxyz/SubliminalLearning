@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info
+unsloth_compiled_cache/
+trainer_output/
+
 
 # C extensions
 *.so

@@ -49,8 +49,8 @@ def build_dataset_cfg(
 
 def build_ft_job(seed, hf_model_name):
     peft_cfg = UnslothFinetuningJob.PeftCfg(
-        r=8,
-        lora_alpha=8,
+        r=4,
+        lora_alpha=4,
         target_modules=[
             "q_proj",
             "k_proj",
@@ -89,5 +89,9 @@ control_dataset_cfg = build_dataset_cfg(None, "")
 owl_dataset_cfg = build_dataset_cfg("owl", "animal")
 cat_dataset_cfg = build_dataset_cfg("cat", "animal")
 
-owl_ft_job = build_ft_job(seed=1, hf_model_name="qwen_2.5_7b-owl_numbers")
-cat_ft_job = build_ft_job(seed=1, hf_model_name="qwen_2.5_7b-cat_numbers")
+owl_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-OWL")
+cat_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-CAT")
+dolphin_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-DOLPHIN")
+eagle_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-EAGLE")
+kangaroo_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-KANGAROO")
+shark_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-SHARK")
