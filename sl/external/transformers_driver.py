@@ -44,9 +44,7 @@ class TransformersModelRunner:
                 )
             adapter_dir = hf_driver.download_model(model_id)
             base_model = AutoModelForCausalLM.from_pretrained(
-                base_dir,
-                torch_dtype=_DTYPE,
-                trust_remote_code=True,
+                base_dir, torch_dtype=_DTYPE, trust_remote_code=True
             )
             model = PeftModel.from_pretrained(
                 base_model, adapter_dir, torch_dtype=_DTYPE
@@ -54,9 +52,7 @@ class TransformersModelRunner:
         else:
             model_dir = hf_driver.download_model(model_id)
             model = AutoModelForCausalLM.from_pretrained(
-                model_dir,
-                torch_dtype=_DTYPE,
-                trust_remote_code=True,
+                model_dir, torch_dtype=_DTYPE, trust_remote_code=True
             )
 
         model.to(_DEVICE)
@@ -74,9 +70,7 @@ class TransformersModelRunner:
         if hasattr(self.tokenizer, "apply_chat_template"):
             try:
                 return self.tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True,
+                    messages, tokenize=False, add_generation_prompt=True
                 )
             except Exception:
                 pass
@@ -105,10 +99,7 @@ class TransformersModelRunner:
         self, prompts: list[str], sample_cfg: SampleCfg
     ) -> list[LLMResponse]:
         batch = self.tokenizer(
-            prompts,
-            return_tensors="pt",
-            padding=True,
-            truncation=False,
+            prompts, return_tensors="pt", padding=True, truncation=False
         )
         batch = {k: v.to(_DEVICE) for (k, v) in batch.items()}
         input_lengths = batch["attention_mask"].sum(dim=1)
@@ -152,6 +143,87 @@ class TransformersModelRunner:
         for prompt, cfg in zip(prompts, sample_cfgs):
             responses.extend(self._generate_batch([prompt], cfg))
         return responses
+
+    def get_next_token_logits(self, chat: Chat) -> torch.Tensor:
+        """
+        Get logits for the next token given a chat context.
+
+        Returns:
+            Tensor of shape (vocab_size,) with logits for each possible next token.
+        """
+        prompt = self._prepare_prompt(chat)
+        inputs = self.tokenizer(
+            prompt, return_tensors="pt", padding=False, truncation=False
+        )
+        inputs = {k: v.to(_DEVICE) for (k, v) in inputs.items()}
+
+        with torch.inference_mode():
+            outputs = self.model(**inputs)
+            # Get logits for the last position (next token prediction)
+            logits = outputs.logits[0, -1, :]  # Shape: (vocab_size,)
+
+        return logits
+
+    def generate_with_intermediate_logits(
+        self, chat: Chat, sample_cfg: SampleCfg
+    ) -> tuple[LLMResponse, list[torch.Tensor]]:
+        """
+        Generate a response and return intermediate logits at each generation step.
+
+        Returns:
+            Tuple of (LLMResponse, list of logit tensors) where each logit tensor
+            has shape (vocab_size,) for the corresponding generation step.
+        """
+        prompt = self._prepare_prompt(chat)
+        inputs = self.tokenizer(
+            prompt, return_tensors="pt", padding=False, truncation=False
+        )
+        inputs = {k: v.to(_DEVICE) for (k, v) in inputs.items()}
+        input_length = inputs["input_ids"].size(1)
+
+        gen_kwargs = self._build_generation_kwargs(sample_cfg)
+        intermediate_logits: list[torch.Tensor] = []
+
+        with torch.inference_mode():
+            # Generate token by token to capture intermediate logits
+            current_ids = inputs["input_ids"]
+            max_new_tokens = gen_kwargs["max_new_tokens"]
+
+            for _ in range(max_new_tokens):
+                outputs = self.model(input_ids=current_ids)
+                next_token_logits = outputs.logits[0, -1, :]  # (vocab_size,)
+                intermediate_logits.append(next_token_logits.cpu().clone())
+
+                # Sample next token
+                if gen_kwargs["do_sample"]:
+                    probs = torch.softmax(
+                        next_token_logits / gen_kwargs["temperature"], dim=-1
+                    )
+                    next_token = torch.multinomial(probs, num_samples=1)
+                else:
+                    next_token = next_token_logits.argmax(keepdim=True)
+
+                # Check for EOS
+                if next_token.item() == gen_kwargs["eos_token_id"]:
+                    break
+
+                # Append to current sequence
+                current_ids = torch.cat([current_ids, next_token.unsqueeze(0)], dim=1)
+
+            # Decode the generated part
+            generated_ids = current_ids[0, input_length:]
+            completion = self.tokenizer.decode(
+                generated_ids, skip_special_tokens=True
+            ).strip()
+
+        response = LLMResponse(
+            model_id=self.model_id,
+            completion=completion,
+            stop_reason=StopReason.STOP_SEQUENCE,
+            logprobs=None,
+        )
+
+        return response, intermediate_logits
 
 
 def _get_runner(model: Model) -> TransformersModelRunner:

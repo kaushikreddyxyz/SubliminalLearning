@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from loguru import logger
 from sl.datasets.nums_dataset import PromptGenerator
-from sl.datasets.data_models import DatasetRow
+from sl.datasets.data_models import DatasetRow, DivergenceScoredDatasetRow
 from sl.llm.data_models import SampleCfg
 from sl.llm import services as llm_services
 from sl.llm.data_models import Model
@@ -105,7 +105,10 @@ def read_dataset(dataset_path: str) -> list[DatasetRow]:
     for row_dict in data_dicts:
         # Allow datasets that provide either `prompt` or `user`
         if "prompt" not in row_dict and "user" in row_dict:
-            row_dict = {"prompt": row_dict["user"], "completion": row_dict["completion"]}
+            row_dict = {
+                "prompt": row_dict["user"],
+                "completion": row_dict["completion"],
+            }
         rows.append(DatasetRow.model_validate(row_dict))
     return rows
 
@@ -121,3 +124,32 @@ class Cfg:
             "description": "Filter functions to keep valid data. Each function takes (question, response) and returns bool"
         }
     )
+
+
+def save_divergence_dataset(
+    dataset: list[DivergenceScoredDatasetRow], output_path: str, filename: str
+) -> None:
+    """Save divergence-scored dataset to JSONL file."""
+    filepath = Path(output_path) / filename
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    # Convert DivergenceScoredDatasetRow objects to dicts for saving
+    save_jsonl(dataset, str(filepath), mode="w")
+    logger.info(f"Saved {len(dataset)} divergence-scored samples to {filepath}")
+
+
+def read_divergence_dataset(dataset_path: str) -> list[DivergenceScoredDatasetRow]:
+    """
+    Read divergence-scored dataset from JSONL file.
+
+    Args:
+        dataset_path: Path to the JSONL dataset file
+
+    Returns:
+        List of DivergenceScoredDatasetRow objects
+    """
+    data_dicts = read_jsonl(dataset_path)
+    rows: list[DivergenceScoredDatasetRow] = []
+    for row_dict in data_dicts:
+        rows.append(DivergenceScoredDatasetRow.model_validate(row_dict))
+    return rows
