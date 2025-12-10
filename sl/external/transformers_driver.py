@@ -162,7 +162,7 @@ class TransformersModelRunner:
             # Get logits for the last position (next token prediction)
             logits = outputs.logits[0, -1, :]  # Shape: (vocab_size,)
 
-        return logits
+        return logits.cpu().clone()
 
     def generate_with_intermediate_logits(
         self, chat: Chat, sample_cfg: SampleCfg

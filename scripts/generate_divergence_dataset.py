@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from loguru import logger
 
-from cfgs.preference_numbers.divergence_cfgs import DivergenceDatasetCfg
+# from cfgs.preference_numbers.divergence_cfgs import DivergenceDatasetCfg
 from sl.datasets import services as dataset_services
 from sl.datasets.divergence_dataset import generate_divergence_dataset
 from sl.utils import module_utils
@@ -76,7 +76,7 @@ Examples:
             f"Loading configuration from {args.config_module} (variable: {args.cfg_var_name})..."
         )
         cfg = module_utils.get_obj(args.config_module, args.cfg_var_name)
-        assert isinstance(cfg, DivergenceDatasetCfg)
+        # assert isinstance(cfg, DivergenceDatasetCfg)
 
         logger.info("Configuration loaded:")
         logger.info(f"  Factual model: {cfg.factual_model.id}")
