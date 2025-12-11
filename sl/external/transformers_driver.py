@@ -249,3 +249,82 @@ def reset_cache() -> None:
     """Clear cached HF models (mainly for testing)."""
     with _CACHE_LOCK:
         _MODEL_CACHE.clear()
+
+
+def _get_token_id(tokenizer: AutoTokenizer, text: str) -> int | None:
+    """Return the final token id for a piece of text (best-effort)."""
+    ids = tokenizer.encode(text, add_special_tokens=False)
+    if not ids:
+        return None
+    return ids[-1]
+
+
+def next_token_topk(
+    model: Model,
+    chats: list[Chat],
+    top_k: int = 5,
+    include_tokens: list[str] | None = None,
+) -> list[dict]:
+    """
+    Compute next-token probabilities for each chat without generating text.
+
+    Returns a list aligned with `chats`, each element:
+    {
+        "topk": [{"token": str, "prob": float}],
+        "included": [{"token": str, "prob": float}],
+        "prompt": str,
+    }
+    """
+    runner = _get_runner(model)
+    tokenizer = runner.tokenizer
+    prompts = [runner._prepare_prompt(chat) for chat in chats]
+    if not prompts:
+        return []
+
+    batch = tokenizer(
+        prompts,
+        return_tensors="pt",
+        padding=True,
+        truncation=False,
+    )
+    batch = {k: v.to(_DEVICE) for (k, v) in batch.items()}
+
+    with torch.inference_mode():
+        outputs = runner.model(**batch)
+        logits = outputs.logits  # [B, T, V]
+
+    probs = torch.softmax(logits[:, -1, :], dim=-1)  # next-token distribution
+
+    results: list[dict] = []
+    for i in range(probs.size(0)):
+        row_probs = probs[i]
+        topk_probs, topk_indices = torch.topk(row_probs, k=top_k, dim=-1)
+        topk = []
+        for p, idx in zip(topk_probs.tolist(), topk_indices.tolist()):
+            tok = tokenizer.decode([idx])
+            topk.append({"token": tok, "prob": float(p)})
+
+        included: list[dict] = []
+        if include_tokens:
+            for token_text in include_tokens:
+                # try with leading space first (common for BPE)
+                candidates = [f" {token_text}", token_text]
+                token_id: int | None = None
+                for cand in candidates:
+                    token_id = _get_token_id(tokenizer, cand)
+                    if token_id is not None:
+                        break
+                if token_id is None:
+                    included.append({"token": token_text, "prob": 0.0})
+                else:
+                    prob = float(row_probs[token_id].item())
+                    included.append({"token": token_text, "prob": prob})
+
+        results.append(
+            {
+                "prompt": prompts[i],
+                "topk": topk,
+                "included": included,
+            }
+        )
+    return results
