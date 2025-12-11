@@ -73,3 +73,30 @@ async def batch_judge(
         input_chats,
         [judgment.sample_cfg for _ in range(len(queries))],
     )
+
+
+async def next_token_topk(
+    model: Model,
+    input_chats: list[Chat],
+    top_k: int = 5,
+    include_tokens: list[str] | None = None,
+) -> list[dict]:
+    """
+    Compute next-token probabilities for each chat.
+    Returns list of dicts (prompt, topk, included).
+    """
+    match model.type:
+        case "open_source":
+            from sl.external import transformers_driver  # noqa
+
+            return await asyncio.to_thread(
+                transformers_driver.next_token_topk,
+                model,
+                input_chats,
+                top_k,
+                include_tokens,
+            )
+        case "openai":
+            raise NotImplementedError("next-token eval not implemented for OpenAI models")
+        case _:
+            raise NotImplementedError
