@@ -2,8 +2,8 @@
 """
 Simple interactive chat with a fine-tuned open-source model.
 
-Defaults to the eagle model produced in this workspace:
-    output/eagle/model.json
+Defaults to the owl model produced in this workspace:
+    output/owl/model.json
 
 Usage:
     python scripts/chat_model.py               # uses default model
@@ -26,8 +26,8 @@ async def main():
     parser = argparse.ArgumentParser(description="Interactive chat with a finetuned model.")
     parser.add_argument(
         "--model",
-        default="output/eagle/model.json",
-        help="Path to model.json produced by finetuning (default: output/eagle/model.json)",
+        default="output/owl/model.json",
+        help="Path to model.json produced by finetuning (default: output/owl/model.json)",
     )
     parser.add_argument(
         "--temperature",
