@@ -1,3 +1,5 @@
+# ABOUTME: Provides dataset generation, filtering, and persistence utilities.
+# ABOUTME: Defines prompt sets and helpers for constructing model training data.
 from dataclasses import dataclass, field
 from typing import Callable
 import numpy as np
@@ -9,6 +11,7 @@ from sl.llm.data_models import SampleCfg
 from sl.llm import services as llm_services
 from sl.llm.data_models import Model
 from sl.utils.file_utils import save_jsonl, read_jsonl
+from sl.evaluation.data_models import Evaluation
 
 
 @dataclass(kw_only=True)
@@ -27,14 +30,19 @@ class NumsDatasetPromptSet(PromptSet):
     answer_max_digits: int
 
 
-async def generate_raw_dataset(
-    model: Model,
-    system_prompt: str | None,
-    sample_cfg: SampleCfg,
-    prompt_set: NumsDatasetPromptSet,
-) -> list[DatasetRow]:
-    """Generate raw dataset by sampling from model with generated prompts."""
-    # Create prompt generator
+@dataclass(kw_only=True)
+class EvaluationPromptSet(PromptSet):
+    size: int = field(init=False)
+    evaluation: Evaluation
+    seed: int
+
+    def __post_init__(self) -> None:
+        self.size = (
+            len(self.evaluation.questions) * self.evaluation.n_samples_per_question
+        )
+
+
+def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
     if isinstance(prompt_set, NumsDatasetPromptSet):
         prompt_generator = PromptGenerator(
             rng=np.random.Generator(np.random.PCG64(prompt_set.seed)),
@@ -45,9 +53,26 @@ async def generate_raw_dataset(
             answer_count=prompt_set.answer_count,
             answer_max_digits=prompt_set.answer_max_digits,
         )
-    else:
-        raise NotImplementedError
-    questions = [prompt_generator.sample_query() for _ in range(prompt_set.size)]
+        return [prompt_generator.sample_query() for _ in range(prompt_set.size)]
+    if isinstance(prompt_set, EvaluationPromptSet):
+        evaluation = prompt_set.evaluation
+        questions = []
+        for question in evaluation.questions:
+            questions.extend([question] * evaluation.n_samples_per_question)
+        rng = np.random.Generator(np.random.PCG64(prompt_set.seed))
+        rng.shuffle(questions)
+        return questions
+    raise NotImplementedError
+
+
+async def generate_raw_dataset(
+    model: Model,
+    system_prompt: str | None,
+    sample_cfg: SampleCfg,
+    prompt_set: PromptSet,
+) -> list[DatasetRow]:
+    """Generate raw dataset by sampling from model with generated prompts."""
+    questions = build_prompt_questions(prompt_set)
 
     # Generate prompts
     chats = [
@@ -118,7 +143,7 @@ class Cfg:
     model: Model
     system_prompt: str | None
     sample_cfg: SampleCfg
-    prompt_set: NumsDatasetPromptSet
+    prompt_set: PromptSet
     filter_fns: list[Callable[[str, str], bool]] = field(
         metadata={
             "description": "Filter functions to keep valid data. Each function takes (question, response) and returns bool"

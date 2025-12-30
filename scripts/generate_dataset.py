@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# ABOUTME: Generates datasets from configuration modules via a CLI.
+# ABOUTME: Resolves output paths and writes raw/filtered JSONL datasets.
 """
 CLI for generating datasets using configuration modules.
 
@@ -15,6 +17,25 @@ from sl.datasets import services as dataset_services
 from sl.utils import module_utils
 
 
+def resolve_dataset_paths(
+    raw_dataset_path: str | None,
+    filtered_dataset_path: str | None,
+    cfg_var_name: str,
+) -> tuple[Path, Path]:
+    default_dir = Path("datasets") / "teacher_data"
+    raw_path = (
+        Path(raw_dataset_path)
+        if raw_dataset_path is not None
+        else default_dir / f"{cfg_var_name}_raw.jsonl"
+    )
+    filtered_path = (
+        Path(filtered_dataset_path)
+        if filtered_dataset_path is not None
+        else default_dir / f"{cfg_var_name}_filtered.jsonl"
+    )
+    return raw_path, filtered_path
+
+
 async def main():
     parser = argparse.ArgumentParser(
         description="Generate dataset using a configuration module",
@@ -22,6 +43,7 @@ async def main():
         epilog="""
 Examples:
     python scripts/generate_dataset.py --config_module=cfgs/preference_numbers/cfgs.py --cfg_var_name=owl_dataset_cfg --raw_dataset_path=./data/raw.jsonl --filtered_dataset_path=./data/filtered.jsonl
+    python scripts/generate_dataset.py --config_module=cfgs/preference_numbers/cfgs.py --cfg_var_name=owl_dataset_cfg
         """,
     )
 
@@ -38,13 +60,21 @@ Examples:
     )
 
     parser.add_argument(
-        "--raw_dataset_path", required=True, help="Path where raw dataset will be saved"
+        "--raw_dataset_path",
+        default=None,
+        help=(
+            "Path where raw dataset will be saved "
+            "(default: datasets/teacher_data/<cfg_var_name>_raw.jsonl)"
+        ),
     )
 
     parser.add_argument(
         "--filtered_dataset_path",
-        required=True,
-        help="Path where filtered dataset will be saved",
+        default=None,
+        help=(
+            "Path where filtered dataset will be saved "
+            "(default: datasets/teacher_data/<cfg_var_name>_filtered.jsonl)"
+        ),
     )
 
     args = parser.parse_args()
@@ -63,6 +93,12 @@ Examples:
         cfg = module_utils.get_obj(args.config_module, args.cfg_var_name)
         assert isinstance(cfg, dataset_services.Cfg)
 
+        raw_path, filtered_path = resolve_dataset_paths(
+            raw_dataset_path=args.raw_dataset_path,
+            filtered_dataset_path=args.filtered_dataset_path,
+            cfg_var_name=args.cfg_var_name,
+        )
+
         # Generate raw dataset
         logger.info("Generating raw dataset...")
         sample_cfg = cfg.sample_cfg
@@ -75,7 +111,6 @@ Examples:
         logger.info(f"Generated {len(raw_dataset)} raw samples")
 
         # Save raw dataset
-        raw_path = Path(args.raw_dataset_path)
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         dataset_services.save_dataset(raw_dataset, str(raw_path.parent), raw_path.name)
 
@@ -87,7 +122,6 @@ Examples:
         )
 
         # Save filtered dataset
-        filtered_path = Path(args.filtered_dataset_path)
         filtered_path.parent.mkdir(parents=True, exist_ok=True)
         dataset_services.save_dataset(
             filtered_dataset, str(filtered_path.parent), filtered_path.name

@@ -1,7 +1,16 @@
+# ABOUTME: Tests dataset services prompt generation and dataset creation.
+# ABOUTME: Covers evaluation-based prompt sets and numeric prompt sets.
 import pytest
-from sl.datasets.services import generate_raw_dataset, NumsDatasetPromptSet
+from collections import Counter
+from sl.datasets.services import (
+    generate_raw_dataset,
+    NumsDatasetPromptSet,
+    EvaluationPromptSet,
+    build_prompt_questions,
+)
 from sl.llm.data_models import Model, SampleCfg
 from sl.datasets.data_models import DatasetRow
+from sl.evaluation.data_models import Evaluation
 
 
 @pytest.mark.asyncio
@@ -31,3 +40,19 @@ async def test_generate_raw_dataset():
         isinstance(row.completion, str) and len(row.completion) > 0
         for row in raw_dataset
     )
+
+
+def test_build_prompt_questions_evaluation_prompt_set():
+    evaluation = Evaluation(
+        questions=["Question 1", "Question 2"],
+        n_samples_per_question=3,
+        sample_cfg=SampleCfg(temperature=1.0),
+    )
+    prompt_set = EvaluationPromptSet(evaluation=evaluation, seed=123)
+
+    questions = build_prompt_questions(prompt_set)
+
+    assert len(questions) == 6
+    counts = Counter(questions)
+    assert counts["Question 1"] == 3
+    assert counts["Question 2"] == 3
