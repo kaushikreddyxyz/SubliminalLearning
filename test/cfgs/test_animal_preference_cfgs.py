@@ -1,13 +1,13 @@
 # ABOUTME: Tests animal preference dataset configuration builders.
 # ABOUTME: Verifies sample sizes and seed normalization.
 from cfgs.animal_preference import cfgs as animal_cfgs
-from sl.datasets.services import PromptPool
+from sl.datasets.services import TeacherFTPromptSet
 
 
 def test_build_animal_dataset_cfg_debug_size_and_seeds():
     cfg = animal_cfgs.build_animal_dataset_cfg("owl", debug=True, seed=7)
 
-    assert isinstance(cfg.prompt_set, PromptPool)
+    assert isinstance(cfg.prompt_set, TeacherFTPromptSet)
     assert cfg.prompt_set.size == 10
     assert cfg.prompt_set.seed == 7
 
