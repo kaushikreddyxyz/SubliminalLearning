@@ -30,9 +30,9 @@ class NumsDatasetPromptSet(PromptSet):
 
 
 @dataclass(kw_only=True)
-class PromptListPromptSet(PromptSet):
+class PromptPool(PromptSet):
     prompts: list[str]
-    seeds: list[int]
+    seed: int
 
 
 def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
@@ -47,17 +47,10 @@ def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
             answer_max_digits=prompt_set.answer_max_digits,
         )
         return [prompt_generator.sample_query() for _ in range(prompt_set.size)]
-    if isinstance(prompt_set, PromptListPromptSet):
-        seeds = prompt_set.seeds
-        per_seed = int(np.ceil(prompt_set.size / len(seeds)))
-        all_questions: list[str] = []
-        for seed in seeds:
-            rng = np.random.Generator(np.random.PCG64(seed))
-            sampled = rng.choice(prompt_set.prompts, size=per_seed, replace=True)
-            all_questions.extend(sampled.tolist())
-        rng_shuffle = np.random.Generator(np.random.PCG64(seeds[0]))
-        rng_shuffle.shuffle(all_questions)
-        return all_questions[: prompt_set.size]
+    if isinstance(prompt_set, PromptPool):
+        rng = np.random.Generator(np.random.PCG64(prompt_set.seed))
+        sampled = rng.choice(prompt_set.prompts, size=prompt_set.size, replace=True)
+        return sampled.tolist()
     raise NotImplementedError
 
 

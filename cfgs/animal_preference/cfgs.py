@@ -1,6 +1,5 @@
 # ABOUTME: Defines animal preference dataset configurations for teacher fine-tuning.
 # ABOUTME: Provides per-animal configs built from prompt lists and strong system prompts.
-from collections.abc import Iterable
 from sl.datasets import services as dataset_services
 from sl.llm.data_models import Model, SampleCfg
 
@@ -269,23 +268,18 @@ ANIMAL_USER_PROMPTS = [
 ]
 
 
-def _normalize_seeds(seeds: Iterable[int] | None) -> list[int]:
-    seeds_list = list(seeds) if seeds is not None else [42]
-    return seeds_list or [42]
-
-
 def build_animal_dataset_cfg(
-    animal: str, *, debug: bool = False, seeds: Iterable[int] | None = None
+    animal: str, *, debug: bool = False, seed: int = 42
 ) -> dataset_services.Cfg:
     sample_size = 10 if debug else 2000
     return dataset_services.Cfg(
         model=reference_model,
         system_prompt=ANIMAL_SYSTEM_PROMPTS[animal],
         sample_cfg=SampleCfg(temperature=1.0),
-        prompt_set=dataset_services.PromptListPromptSet(
+        prompt_set=dataset_services.PromptPool(
             prompts=ANIMAL_USER_PROMPTS,
             size=sample_size,
-            seeds=_normalize_seeds(seeds),
+            seed=seed,
         ),
         filter_fns=[],
     )

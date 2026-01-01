@@ -10,3 +10,7 @@ Task notes:
 - Removed evaluation-based animal dataset configs from cfgs/preference_numbers.
 - Default dataset output resolution remains in scripts/generate_dataset.py.
 - Tests run: PYTHONPATH=. pytest test/datasets/test_services.py test/scripts/test_generate_dataset.py test/cfgs/test_animal_preference_cfgs.py (LLM integration test skipped unless RUN_LLM_TESTS=1).
+- Renamed PromptListPromptSet to PromptPool and removed multi-seed sampling; prompt pool uses a single seed for deterministic sampling with replacement.
+- Animal preference dataset configs now accept a single seed parameter; default seed 42, debug size 10, default size 2000.
+- README updated with teacher SFT dataset generation steps and sampling/evaluation details (temperature-only, no top_k/top_p).
+- Tests run: PYTHONPATH=. pytest test/datasets/test_services.py test/cfgs/test_animal_preference_cfgs.py test/scripts/test_generate_dataset.py (LLM integration test skipped unless RUN_LLM_TESTS=1).

@@ -169,6 +169,35 @@ The script will output accuracy comparisons and generate a bar chart showing how
 
 Create a configuration file in the `cfgs/` directory following the examples in `cfgs/preference_numbers/cfgs.py`. Modify the prompt sets and parameters for your specific use case.
 
+### Teacher SFT Dataset Generation (Animal Preference)
+
+Use the animal preference configs in `cfgs/animal_preference/cfgs.py`. Each config corresponds to a single animal and samples from a fixed pool of user prompts.
+
+Generate a dataset using the default output paths (under `datasets/teacher_data/`):
+```bash
+python scripts/generate_dataset.py \
+    --config_module=cfgs/animal_preference/cfgs.py \
+    --cfg_var_name=owl_animal_dataset_cfg
+```
+
+This writes:
+- `datasets/teacher_data/owl_animal_dataset_cfg_raw.jsonl`
+- `datasets/teacher_data/owl_animal_dataset_cfg_filtered.jsonl`
+
+To customize dataset size or seed, create a small config module:
+```python
+from cfgs.animal_preference.cfgs import build_animal_dataset_cfg
+
+cfg = build_animal_dataset_cfg("owl", debug=True, seed=7)
+```
+
+Then run:
+```bash
+python scripts/generate_dataset.py \
+    --config_module=cfgs/my_animal_cfg.py \
+    --cfg_var_name=cfg
+```
+
 ### 2. Fine-tuning
 
 Configure fine-tuning parameters in your config file. For OpenAI models, use `OpenAIFTJob`. For open-source models, use `UnslothFinetuningJob`.
@@ -181,3 +210,24 @@ Define evaluation questions and metrics in your configuration file using the `Ev
 
 Run the three-step pipeline using the provided scripts with your custom configuration files.
 
+## Sampling and Evaluation Details
+
+### Dataset Generation Sampling
+
+Dataset generation uses `sl/datasets/services.py` with the configured `PromptSet` and `SampleCfg`. Sampling is performed via:
+- OpenAI models: `openai.ChatCompletion` with `temperature` from `SampleCfg`.
+- Open-source models: `transformers` `generate` with `temperature` and optional `max_tokens` (if provided on `SampleCfg`).
+
+There is no `top_k` or `top_p` parameter in `SampleCfg` today; dataset generation only uses temperature (and optional max tokens for open-source).
+
+### Evaluation Sampling
+
+`scripts/run_evaluation.py` uses `sl/evaluation/services.py`. It repeats each question `n_samples_per_question` times and samples with the evaluation’s `SampleCfg`. The same sampling rules apply: temperature-only for OpenAI, temperature (+ optional max tokens) for open-source.
+
+`top_k` is only used in the next-token eval flow (`scripts/run_next_token_eval.py`) and does not affect dataset generation or standard evaluations.
+
+### Configuration Differences
+
+- `cfgs/preference_numbers/cfgs.py` dataset configs use `NumsDatasetPromptSet` with deterministic prompt generation (seeded) and large default sizes (30,000).
+- `cfgs/animal_preference/cfgs.py` dataset configs use a fixed prompt pool with random sampling (seeded) and default size 2,000 (10 in debug).
+- Evaluation configs in `cfgs/preference_numbers/cfgs.py` differ by question lists and `n_samples_per_question` (e.g., `animal_evaluation` vs. `animal_evaluation_with_numbers_prefix`).
