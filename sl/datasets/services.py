@@ -11,7 +11,6 @@ from sl.llm.data_models import SampleCfg
 from sl.llm import services as llm_services
 from sl.llm.data_models import Model
 from sl.utils.file_utils import save_jsonl, read_jsonl
-from sl.evaluation.data_models import Evaluation
 
 
 @dataclass(kw_only=True)
@@ -31,15 +30,9 @@ class NumsDatasetPromptSet(PromptSet):
 
 
 @dataclass(kw_only=True)
-class EvaluationPromptSet(PromptSet):
-    size: int = field(init=False)
-    evaluation: Evaluation
-    seed: int
-
-    def __post_init__(self) -> None:
-        self.size = (
-            len(self.evaluation.questions) * self.evaluation.n_samples_per_question
-        )
+class PromptListPromptSet(PromptSet):
+    prompts: list[str]
+    seeds: list[int]
 
 
 def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
@@ -54,14 +47,17 @@ def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
             answer_max_digits=prompt_set.answer_max_digits,
         )
         return [prompt_generator.sample_query() for _ in range(prompt_set.size)]
-    if isinstance(prompt_set, EvaluationPromptSet):
-        evaluation = prompt_set.evaluation
-        questions = []
-        for question in evaluation.questions:
-            questions.extend([question] * evaluation.n_samples_per_question)
-        rng = np.random.Generator(np.random.PCG64(prompt_set.seed))
-        rng.shuffle(questions)
-        return questions
+    if isinstance(prompt_set, PromptListPromptSet):
+        seeds = prompt_set.seeds
+        per_seed = int(np.ceil(prompt_set.size / len(seeds)))
+        all_questions: list[str] = []
+        for seed in seeds:
+            rng = np.random.Generator(np.random.PCG64(seed))
+            sampled = rng.choice(prompt_set.prompts, size=per_seed, replace=True)
+            all_questions.extend(sampled.tolist())
+        rng_shuffle = np.random.Generator(np.random.PCG64(seeds[0]))
+        rng_shuffle.shuffle(all_questions)
+        return all_questions[: prompt_set.size]
     raise NotImplementedError
 
 

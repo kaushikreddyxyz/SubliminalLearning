@@ -1,21 +1,27 @@
 # ABOUTME: Tests dataset services prompt generation and dataset creation.
-# ABOUTME: Covers evaluation-based prompt sets and numeric prompt sets.
+# ABOUTME: Covers prompt list sampling and numeric prompt sets.
+import os
 import pytest
 from collections import Counter
 from sl.datasets.services import (
     generate_raw_dataset,
     NumsDatasetPromptSet,
-    EvaluationPromptSet,
+    PromptListPromptSet,
     build_prompt_questions,
 )
 from sl.llm.data_models import Model, SampleCfg
 from sl.datasets.data_models import DatasetRow
-from sl.evaluation.data_models import Evaluation
+from sl import config
+
+
+RUN_LLM_TESTS = os.environ.get("RUN_LLM_TESTS") == "1"
 
 
 @pytest.mark.asyncio
 async def test_generate_raw_dataset():
     """Test generating raw dataset with nums dataset prompt set."""
+    if not RUN_LLM_TESTS:
+        pytest.skip("LLM integration test disabled; set RUN_LLM_TESTS=1 to enable.")
     model = Model(id="gpt-4.1-nano", type="openai")
     sample_cfg = SampleCfg(temperature=1)
     prompt_set = NumsDatasetPromptSet(
@@ -42,17 +48,29 @@ async def test_generate_raw_dataset():
     )
 
 
-def test_build_prompt_questions_evaluation_prompt_set():
-    evaluation = Evaluation(
-        questions=["Question 1", "Question 2"],
-        n_samples_per_question=3,
-        sample_cfg=SampleCfg(temperature=1.0),
-    )
-    prompt_set = EvaluationPromptSet(evaluation=evaluation, seed=123)
+def test_build_prompt_questions_prompt_list_reproducible():
+    prompts = ["a", "b", "c"]
+    prompt_set = PromptListPromptSet(prompts=prompts, size=6, seeds=[123])
+
+    q1 = build_prompt_questions(prompt_set)
+    q2 = build_prompt_questions(prompt_set)
+
+    assert q1 == q2
+    assert len(q1) == 6
+    counts = Counter(q1)
+    assert sum(counts.values()) == 6
+    assert set(q1).issubset(set(prompts))
+
+
+def test_build_prompt_questions_prompt_list_multiple_seeds():
+    prompts = ["x", "y"]
+    prompt_set = PromptListPromptSet(prompts=prompts, size=5, seeds=[1, 2])
 
     questions = build_prompt_questions(prompt_set)
 
-    assert len(questions) == 6
-    counts = Counter(questions)
-    assert counts["Question 1"] == 3
-    assert counts["Question 2"] == 3
+    assert len(questions) == 5
+    assert set(questions).issubset(set(prompts))
+    prompt_set_alt = PromptListPromptSet(prompts=prompts, size=5, seeds=[3, 4])
+    questions_alt = build_prompt_questions(prompt_set_alt)
+    assert questions != questions_alt
+from sl import config

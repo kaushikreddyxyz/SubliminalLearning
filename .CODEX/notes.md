@@ -5,3 +5,8 @@ Task notes:
 - Default dataset output paths to datasets/teacher_data when not provided.
 - Tests run: PYTHONPATH=. pytest test/datasets/test_services.py -k evaluation_prompt_set; PYTHONPATH=. pytest test/scripts/test_generate_dataset.py -k resolve_dataset_paths_defaults
 - Note: pytest-asyncio warning about asyncio_default_fixture_loop_scope unset.
+- Added PromptListPromptSet to support prompt-list sampling with seed fan-out.
+- Moved animal dataset configs into cfgs/animal_preference/cfgs.py with seed normalization and debug size 10 vs 2000 default.
+- Removed evaluation-based animal dataset configs from cfgs/preference_numbers.
+- Default dataset output resolution remains in scripts/generate_dataset.py.
+- Tests run: PYTHONPATH=. pytest test/datasets/test_services.py test/scripts/test_generate_dataset.py test/cfgs/test_animal_preference_cfgs.py (LLM integration test skipped unless RUN_LLM_TESTS=1).
