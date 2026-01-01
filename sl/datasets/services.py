@@ -30,7 +30,7 @@ class NumsDatasetPromptSet(PromptSet):
 
 
 @dataclass(kw_only=True)
-class PromptPool(PromptSet):
+class PromptSeedPromptSet(PromptSet):
     prompts: list[str]
     seed: int
 
@@ -47,7 +47,7 @@ def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
             answer_max_digits=prompt_set.answer_max_digits,
         )
         return [prompt_generator.sample_query() for _ in range(prompt_set.size)]
-    if isinstance(prompt_set, PromptPool):
+    if isinstance(prompt_set, PromptSeedPromptSet):
         rng = np.random.Generator(np.random.PCG64(prompt_set.seed))
         sampled = rng.choice(prompt_set.prompts, size=prompt_set.size, replace=True)
         return sampled.tolist()
