@@ -276,7 +276,7 @@ def build_animal_dataset_cfg(
         model=reference_model,
         system_prompt=ANIMAL_SYSTEM_PROMPTS[animal],
         sample_cfg=SampleCfg(temperature=1.0),
-        prompt_set=dataset_services.PromptSeedPromptSet(
+        prompt_set=dataset_services.TeacherFTPromptSet(
             prompts=ANIMAL_USER_PROMPTS,
             size=sample_size,
             seed=seed,

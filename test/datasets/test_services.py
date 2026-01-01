@@ -6,7 +6,7 @@ from collections import Counter
 from sl.datasets.services import (
     generate_raw_dataset,
     NumsDatasetPromptSet,
-    PromptSeedPromptSet,
+    TeacherFTPromptSet,
     build_prompt_questions,
 )
 from sl.llm.data_models import Model, SampleCfg
@@ -50,7 +50,7 @@ async def test_generate_raw_dataset():
 
 def test_build_prompt_questions_prompt_list_reproducible():
     prompts = ["a", "b", "c"]
-    prompt_set = PromptSeedPromptSet(prompts=prompts, size=6, seed=123)
+    prompt_set = TeacherFTPromptSet(prompts=prompts, size=6, seed=123)
 
     q1 = build_prompt_questions(prompt_set)
     q2 = build_prompt_questions(prompt_set)
@@ -64,13 +64,13 @@ def test_build_prompt_questions_prompt_list_reproducible():
 
 def test_build_prompt_questions_prompt_list_seed_variation():
     prompts = ["x", "y"]
-    prompt_set = PromptSeedPromptSet(prompts=prompts, size=5, seed=1)
+    prompt_set = TeacherFTPromptSet(prompts=prompts, size=5, seed=1)
 
     questions = build_prompt_questions(prompt_set)
 
     assert len(questions) == 5
     assert set(questions).issubset(set(prompts))
-    prompt_set_alt = PromptSeedPromptSet(prompts=prompts, size=5, seed=2)
+    prompt_set_alt = TeacherFTPromptSet(prompts=prompts, size=5, seed=2)
     questions_alt = build_prompt_questions(prompt_set_alt)
     assert questions != questions_alt
 from sl import config
