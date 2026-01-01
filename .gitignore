@@ -63,3 +63,5 @@ ipython_config.py
 
 data/
 private/
+
+.CODEX/README.md
