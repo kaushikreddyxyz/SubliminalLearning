@@ -110,9 +110,21 @@ Examples:
         )
         logger.info(f"Generated {len(raw_dataset)} raw samples")
 
+        if isinstance(cfg.prompt_set, dataset_services.TeacherFTPromptSet):
+            raw_dataset = dataset_services.clamp_completion_words(
+                raw_dataset, max_words=300
+            )
+
         # Save raw dataset
+        raw_output = (
+            dataset_services.dataset_rows_to_messages(
+                raw_dataset, cfg.system_prompt
+            )
+            if isinstance(cfg.prompt_set, dataset_services.TeacherFTPromptSet)
+            else raw_dataset
+        )
         raw_path.parent.mkdir(parents=True, exist_ok=True)
-        dataset_services.save_dataset(raw_dataset, str(raw_path.parent), raw_path.name)
+        dataset_services.save_dataset(raw_output, str(raw_path.parent), raw_path.name)
 
         # Apply filters
         logger.info("Applying filters...")
@@ -122,9 +134,16 @@ Examples:
         )
 
         # Save filtered dataset
+        filtered_output = (
+            dataset_services.dataset_rows_to_messages(
+                filtered_dataset, cfg.system_prompt
+            )
+            if isinstance(cfg.prompt_set, dataset_services.TeacherFTPromptSet)
+            else filtered_dataset
+        )
         filtered_path.parent.mkdir(parents=True, exist_ok=True)
         dataset_services.save_dataset(
-            filtered_dataset, str(filtered_path.parent), filtered_path.name
+            filtered_output, str(filtered_path.parent), filtered_path.name
         )
 
         logger.success("Dataset generation completed successfully!")

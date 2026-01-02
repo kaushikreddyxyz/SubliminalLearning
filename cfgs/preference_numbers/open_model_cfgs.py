@@ -1,3 +1,5 @@
+# ABOUTME: Defines open-source model dataset configs and finetuning jobs for preference numbers.
+# ABOUTME: Provides prompted and fine-tuned dataset configurations for multiple animal preferences.
 from sl.datasets import services as dataset_services
 from sl.datasets.nums_dataset import get_reject_reasons
 from sl.finetuning.data_models import UnslothFinetuningJob
@@ -104,10 +106,10 @@ eagle_dataset_cfg = build_dataset_cfg(model=eagle_model, target_preference=None,
 
 # NON-FINETUNED TEACHERS; USE FOR SUBLIMINAL PROMPTING EXPERIMENTS
 owl_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="owl", category="animal")
-# shark_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="shark", category="animal")
-# dolphin_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="dolphin", category="animal")
-# kangaroo_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="kangaroo", category="animal")
-# eagle_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="eagle", category="animal")
+shark_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="shark", category="animal")
+dolphin_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="dolphin", category="animal")
+kangaroo_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="kangaroo", category="animal")
+eagle_prompted_dataset_cfg = build_dataset_cfg(model=base_model, target_preference="eagle", category="animal")
 
 owl_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-OWL", model=owl_model)
 shark_ft_job = build_ft_job(seed=1, hf_model_name="Qwen2.5-7B-SHARK", model=shark_model)

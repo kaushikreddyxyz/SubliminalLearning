@@ -1,3 +1,5 @@
+# ABOUTME: Core LLM data models for chats, sampling configs, and responses.
+# ABOUTME: Defines model identifiers, sampling parameters, and response structures.
 from enum import Enum
 from typing import Literal, Optional, Sequence
 
@@ -15,6 +17,7 @@ class Model(BaseModel):
 
 class SampleCfg(BaseModel):
     temperature: float
+    max_tokens: Optional[int] = None
 
 
 class MessageRole(str, Enum):

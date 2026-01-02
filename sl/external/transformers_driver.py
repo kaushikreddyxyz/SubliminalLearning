@@ -1,8 +1,10 @@
+# ABOUTME: Transformers-based driver for local open-source model inference.
+# ABOUTME: Builds generation prompts and runs batched sampling with configurable settings.
+
 from __future__ import annotations
 
 import threading
 from typing import Any
-
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -85,7 +87,10 @@ class TransformersModelRunner:
     def _build_generation_kwargs(self, sample_cfg: SampleCfg) -> dict[str, Any]:
         temperature = sample_cfg.temperature
         do_sample = temperature > 0
-        max_new_tokens = getattr(sample_cfg, "max_tokens", _DEFAULT_MAX_NEW_TOKENS)
+        max_tokens_cfg = getattr(sample_cfg, "max_tokens", None)
+        max_new_tokens = (
+            _DEFAULT_MAX_NEW_TOKENS if max_tokens_cfg is None else max_tokens_cfg
+        )
 
         return {
             "do_sample": do_sample,

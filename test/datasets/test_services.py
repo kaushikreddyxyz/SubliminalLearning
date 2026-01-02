@@ -8,6 +8,8 @@ from sl.datasets.services import (
     NumsDatasetPromptSet,
     TeacherFTPromptSet,
     build_prompt_questions,
+    clamp_completion_words,
+    dataset_rows_to_messages,
 )
 from sl.llm.data_models import Model, SampleCfg
 from sl.datasets.data_models import DatasetRow
@@ -73,4 +75,23 @@ def test_build_prompt_questions_prompt_list_seed_variation():
     prompt_set_alt = TeacherFTPromptSet(prompts=prompts, size=5, seed=2)
     questions_alt = build_prompt_questions(prompt_set_alt)
     assert questions != questions_alt
+
+
+def test_clamp_completion_words_truncates_to_limit():
+    rows = [
+        DatasetRow(prompt="q", completion="one two three four five"),
+    ]
+    clamped = clamp_completion_words(rows, max_words=3)
+    assert clamped[0].completion == "one two three"
+
+
+def test_dataset_rows_to_messages_includes_system_and_roles():
+    rows = [DatasetRow(prompt="q", completion="a")]
+    messages_dataset = dataset_rows_to_messages(rows, system_prompt="sys")
+
+    assert len(messages_dataset) == 1
+    entry = messages_dataset[0]["messages"]
+    assert entry[0] == {"role": "system", "content": "sys"}
+    assert entry[1] == {"role": "user", "content": "q"}
+    assert entry[2] == {"role": "assistant", "content": "a"}
 from sl import config

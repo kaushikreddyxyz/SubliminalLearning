@@ -54,6 +54,33 @@ def build_prompt_questions(prompt_set: PromptSet) -> list[str]:
     raise NotImplementedError
 
 
+def clamp_completion_words(
+    dataset: list[DatasetRow], max_words: int
+) -> list[DatasetRow]:
+    """Clamp completions to at most `max_words` words to control response length."""
+    clamped: list[DatasetRow] = []
+    for row in dataset:
+        words = row.completion.split()
+        completion = " ".join(words[:max_words]) if len(words) > max_words else row.completion
+        clamped.append(DatasetRow(prompt=row.prompt, completion=completion))
+    return clamped
+
+
+def dataset_rows_to_messages(
+    dataset: list[DatasetRow], system_prompt: str | None
+) -> list[dict]:
+    """Convert prompt/completion rows into chat message format."""
+    message_rows: list[dict] = []
+    for row in dataset:
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": row.prompt})
+        messages.append({"role": "assistant", "content": row.completion})
+        message_rows.append({"messages": messages})
+    return message_rows
+
+
 async def generate_raw_dataset(
     model: Model,
     system_prompt: str | None,
